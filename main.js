@@ -90,6 +90,7 @@
         analy = audioCtx.createAnalyser();
         analy.fftSize = 2048;
         freq = new Uint8Array(analy.frequencyBinCount);
+        setting();
         msg('読み込み完了');
         isReady = true;
     };
@@ -106,16 +107,63 @@
         requestAnimationFrame(loop);
         return () => cancelAnimationFrame(id);
     };
+    const setting = () => {
+        const hzList = [];
+        for(const [i,v] of freq.entries()){
+            const hz = i * 44100 / analy.fftSize;
+            hzList.push(hz);
+            if(hz > pianoLast) break;
+        }
+        const jList = [];
+        let prev = 0;
+        for(const [i,v] of piano.entries()){
+            const next = Infinity || piano[i + 1],
+                  map = new Map;
+            for(let j = prev; j < hzList.length; j++){
+                const hz = hzList[j];
+                map.set(j, 114514);
+                if(hz > next) {
+                    prev = j;
+                    break;
+                }
+            }
+            jList.push(map);
+        }
+        const loudness = []; // ラウドネス
+        g_jList = jList;
+        g_loudness = loudness;
+    };
+    let g_jList, g_loudness, g_music;
     const cooking = () => {
         analy.getByteFrequencyData(freq);
-        ctx.clearRect(0, 0, width, height);
+        /*ctx.clearRect(0, 0, width, height);
         ctx.fillStyle = 'blue';
         for(const [i,v] of freq.entries()){
             ctx.fillRect(i, 0, 1, v);
+        }*/
+        let limit;
+        const arr = [];
+        for(const [i,v] of piano.entries()){
+            let sum = 0;
+            for(const [j,rate] of g_jList[i].entries()){
+                sum += freq[j] * rate;
+            }
+            arr.push(sum * g_loudness[i]);
         }
+        const output = [];
+        for(const [i,v] of arr.entries()){
+            if(v < limit) continue;
+            output.push(i);
+        }
+        g_music.push(output);
     };
     const width = 1000,
           height = 300;
     const cv = $('<canvas>').appendTo(h).prop({width, height}),
           ctx = cv.get(0).getContext('2d');
+    const piano = (()=>{ // ピアノ88鍵盤の周波数の配列
+        const semiTone = Math.exp(1/12 * Math.log(2));
+        return [...new Array(87)].reduce((p, x)=>(p.unshift(p[0] * semiTone), p), [27.5]).reverse();
+    })();
+    const pianoLast = piano[piano.length - 1];
 })();
