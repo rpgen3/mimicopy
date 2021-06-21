@@ -197,8 +197,8 @@
         const list = {},
               {hz, hzToNote} = piano,
               value = '測定しない';
-        for(const i of hz.keys()) list[hzToNote[i]] = i;
         list[value] = false;
+        for(const i of hz.keys()) list[hzToNote[i]] = i;
         return rpgen3.addSelect(dl,{
             lebel: '音階の値を測定(debug用)',
             list, value
@@ -219,5 +219,9 @@
         Tone.Transport.start();
         return () => Tone.Transport.stop();
     };
-    const g_loudness = await(await fetch('loudness.txt')).text().then(v=>v.split('\n').map(v=>Number(v))).catch(()=>[...new Array(88)].map(v=>1));
+    const g_loudness = await (async() => {
+        const res = await fetch('loudness.txt'),
+              str = await res.text();
+        return res.ok ? str.split('\n').map(v=>Number(v)) : new Array(88).fill(1);
+    })();
 })();
