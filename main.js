@@ -120,7 +120,7 @@
         audioCtx = new AudioContext;
         audioBuf = await audioCtx.decodeAudioData(arrBuf);
         analy = audioCtx.createAnalyser();
-        analy.fftSize = 2048;
+        analy.fftSize = 2 << 14;
         freq = new Uint8Array(analy.frequencyBinCount);
         setting();
         msg('読み込み完了');
@@ -139,10 +139,10 @@
         requestAnimationFrame(loop);
         return () => cancelAnimationFrame(id);
     };
-    let pianoHzMap, g_music, g_min;
+    let hzRange, g_music, g_min;
     const setting = () => {
         g_min = Math.min(...g_loudness);
-        pianoHzMap = g_music = [];
+        hzRange = g_music = [];
         const arr = [];
         for(const [i,v] of freq.entries()){
             const hz = i * 44100 / analy.fftSize;
@@ -152,26 +152,25 @@
         let prev = 0;
         for(const [i,v] of piano.hz.entries()){
             const next = Infinity || piano.hz[i + 1],
-                  m = new Map;
+                  r = [];
             for(let j = prev; j < arr.length; j++){
                 const hz = arr[j];
-                m.set(j, 114514); // 距離を求める
                 if(hz > next) {
                     prev = j;
                     break;
                 }
+                r.push(j);
             }
-            pianoHzMap.push(m);
+            hzRange.push(r);
         }
     };
     const cooking = () => {
         analy.getByteFrequencyData(freq);
         const arr = [];
-        for(const [i,v] of piano.hz.entries()){
-            const m = pianoHzMap[i];
-            let sum = 0;
-            for(const [i,v] of m.entries()) sum += freq[i] * v;
-            arr.push(sum / m.size * (g_min / g_loudness[i]));
+        for(const i of piano.hz.keys()){
+            const r = hzRange[i],
+                  sum = r.reduce((p,x) => p + freq[x], 0);
+            arr.push(sum / r.length * (g_min / g_loudness[i]));
         }
         const output = [];
         for(const [i,v] of arr.entries()){
@@ -179,6 +178,11 @@
         }
         g_music.push(output);
         if(inputDebug !== false) msg(arr[inputDebug()]);
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = 'blue';
+        for(const [i,v] of freq.entries()){
+            ctx.fillRect(i, 0, 1, v);
+        }
     };
     const piano = (()=>{
         const semiTone = Math.exp(1/12 * Math.log(2)),
@@ -223,4 +227,8 @@
         const res = await fetch('loudness.txt');
         return res.ok ? (await res.text()).split('\n').map(v => +v) : [...new Array(88)].fill(1);
     })();
+    const width = 1000,
+          height = 300;
+    const cv = $('<canvas>').appendTo(h).prop({width, height}),
+          ctx = cv.get(0).getContext('2d');
 })();
