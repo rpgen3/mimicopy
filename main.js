@@ -219,5 +219,5 @@
         Tone.Transport.start();
         return () => Tone.Transport.stop();
     };
-    const g_loudness = await(await fetch('loudness.txt')).text().then(v=>v.split('\n').map(v=>Number(v))).catch(()=>[...new Array(88)].map(v=>0));
+    const g_loudness = await(await fetch('loudness.txt')).text().then(v=>v.split('\n').map(v=>Number(v))).catch(()=>[...new Array(88)].map(v=>1));
 })();
