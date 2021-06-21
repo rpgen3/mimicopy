@@ -222,6 +222,6 @@
     const g_loudness = await (async() => {
         const res = await fetch('loudness.txt'),
               str = await res.text();
-        return res.ok ? str.split('\n').map(v=>Number(v)) : new Array(88).fill(1);
+        return res.ok ? str.split('\n').map(v=>Number(v)) : [...new Array(88)].fill(1);
     })();
 })();
