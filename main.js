@@ -199,7 +199,7 @@
         for(const [i,v] of arr.entries()){
             if(v >= inputLimit) output.push(i);
         }
-        if(inputDebug !== false) g_music.push(arr[inputDebug]);
+        if(inputDebug !== false) g_music.push([arr[inputDebug]]);
         else g_music.push(output);
     };
     const piano = (()=>{
