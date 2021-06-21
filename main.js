@@ -83,6 +83,20 @@
         startBtn.show();
         stopBtn.hide();
     }).hide();
+    const resetBtn = addBtn('採譜reset', () => {
+        if(!confirm('採譜したデータを消去しますか？')) return;
+        g_music = [];
+    });
+    const outputBtn = addBtn('出力', () => {
+        if(!isReady) return msg('読み込みが完了していません', true);
+        makeTextFile('採譜データ', g_music.map(v => v.map(v => v).join(' ')).join('\n'));
+    });
+    const makeTextFile = (ttl, str) => $('<a>').prop({
+        download: ttl + '.txt',
+        href: URL.createObjectURL(new Blob([str], {
+            type: 'text/plain'
+        }))
+    }).get(0).click();
     let audioCtx, audioBuf, analy, freq;
     const load = async arrBuf => {
         audioCtx = new AudioContext;
@@ -132,6 +146,7 @@
         const loudness = []; // ラウドネス
         g_jList = jList;
         g_loudness = loudness;
+        g_music = [];
     };
     let g_jList, g_loudness, g_music;
     const cooking = () => {
