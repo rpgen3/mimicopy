@@ -4,16 +4,7 @@
         'https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.26/Tone.js'
     ].map(v => import(v)));
     const rpgen3 = await Promise.all([
-        'baseN',
-        'css',
-        'hankaku',
-        'input',
-        'random',
-        'sample',
-        'save',
-        'strToImg',
-        'url',
-        'util'
+        'input'
     ].map(v => import(`https://rpgen3.github.io/mylib/export/${v}.mjs`))).then(v => Object.assign({},...v));
     const h = $('body').css({
         'text-align': 'center',
