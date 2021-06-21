@@ -51,18 +51,31 @@
             this.ar.push(bpm);
             inputBPM(this.ar.reduce((p,x) => p + x) / this.ar.length);
         }
-    }();
+    };
     addBtn('タップでBPM計測', () => calcBPM.main());
     addBtn('計測リセット', () => {
         calcBPM = new calcBPM.constructor();
     });
-    const play = () => {
-        const src = audioCtx.createBufferSource();
-        src.buffer = audioBuf;
-        src.connect(analy).connect(audioCtx.destination);
-        src.start(0);
+    new class {
+        constructor(){
+            this.a = addBtn('音楽再生', () => this.play());
+            this.b = addBtn('音楽停止', () => this.stop()).hide();
+        }
+        play(){
+            this.a.hide();
+            this.b.show();
+            const src = audioCtx.createBufferSource();
+            src.buffer = audioBuf;
+            src.connect(analy).connect(audioCtx.destination);
+            src.start(0);
+            this.src = src;
+        }
+        stop(){
+            this.a.show();
+            this.b.hide();
+            this.src.stop();
+        }
     };
-    addBtn('音楽再生', play);
     const inputUnit = rpgen3.addSelect(dl,{
         label: '採譜する単位',
         save: true,
@@ -80,17 +93,22 @@
         min: 0,
         max: 255
     });
-    let stopFunc, unitTime;
-    const startBtn = addBtn('測定start', () => {
-        stopFunc = timer(cooking, 60 * 1000 / inputBPM / inputUnit);
-        startBtn.hide();
-        stopBtn.show();
-    });
-    const stopBtn = addBtn('測定stop', () => {
-        stopFunc();
-        startBtn.show();
-        stopBtn.hide();
-    }).hide();
+    new class {
+        constructor(){
+            this.a = addBtn('測定start', () => this.play());
+            this.b = addBtn('測定stop', () => this.stop()).hide();
+        }
+        play(){
+            this.a.hide();
+            this.b.show();
+            this.func = timer(cooking, 60 * 1000 / inputBPM / inputUnit);
+        }
+        stop(){
+            this.a.show();
+            this.b.hide();
+            this.func();
+        }
+    };
     const resetBtn = addBtn('採譜reset', () => {
         if(!confirm('採譜したデータを消去しますか？')) return;
         g_music = [];
@@ -98,17 +116,22 @@
     const outputBtn = addBtn('保存', () => {
         makeTextFile('採譜データ', g_music.map(v => v.map(v => v).join(' ')).join('\n'));
     });
-    let stopFunc2;
-    const playBtn2 = addBtn('採譜結果を再生', () => {
-        stopFunc2 = demo();
-        playBtn2.hide();
-        stopBtn2.show();
-    });
-    const stopBtn2 = addBtn('採譜結果を停止', () => {
-        stopFunc2();
-        playBtn2.show();
-        stopBtn2.hide();
-    }).hide();
+    new class {
+        constructor(){
+            this.a = addBtn('採譜結果を再生', () => this.start());
+            this.b = addBtn('採譜結果を停止', () => this.stop()).hide();
+        }
+        play(){
+            this.a.hide();
+            this.b.show();
+            this.func = demo();
+        }
+        stop(){
+            this.a.show();
+            this.b.hide();
+            this.func();
+        }
+    };
     const makeTextFile = (ttl, str) => $('<a>').prop({
         download: ttl + '.txt',
         href: URL.createObjectURL(new Blob([str], {
@@ -176,13 +199,8 @@
         for(const [i,v] of arr.entries()){
             if(v >= inputLimit) output.push(i);
         }
-        g_music.push(output);
-        if(inputDebug !== false) msg(arr[inputDebug()]);
-        ctx.clearRect(0, 0, width, height);
-        ctx.fillStyle = 'blue';
-        for(const [i,v] of freq.entries()){
-            ctx.fillRect(i, 0, 1, v);
-        }
+        if(inputDebug !== false) g_music.push(arr[inputDebug]);
+        else g_music.push(output);
     };
     const piano = (()=>{
         const semiTone = Math.exp(1/12 * Math.log(2)),
@@ -227,8 +245,4 @@
         const res = await fetch('loudness.txt');
         return res.ok ? (await res.text()).split('\n').map(v => +v) : [...new Array(88)].fill(1);
     })();
-    const width = 1000,
-          height = 300;
-    const cv = $('<canvas>').appendTo(h).prop({width, height}),
-          ctx = cv.get(0).getContext('2d');
 })();
