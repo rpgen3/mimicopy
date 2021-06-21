@@ -35,10 +35,11 @@
         fr.onload = () => load(fr.result);
         fr.readAsArrayBuffer(e.target.files[0]);
     });
-    const addBtn = (ttl, func) => $('<button>').appendTo(h).text(ttl).on('click', func);
+    const dl = $('<dl>').appendTo(h).hide();
+    const addBtn = (ttl, func) => $('<button>').appendTo(dl).text(ttl).on('click', func);
     const bpmMin = 40,
           bpmMax = 300;
-    const inputBPM = rpgen3.addInputNum(h,{
+    const inputBPM = rpgen3.addInputNum(dl,{
         label: 'BPM',
         save: true,
         value: 140,
@@ -64,17 +65,27 @@
         calcBPM = new calcBPM.constructor();
     });
     const play = () => {
-        if(!isReady) return msg('読み込みが完了していません', true);
         const src = audioCtx.createBufferSource();
         src.buffer = audioBuf;
         src.connect(analy).connect(audioCtx.destination);
         src.start(0);
     };
     addBtn('音楽再生', play);
-    let isReady, stopFunc;
+    const inputUnit = rpgen3.addSelect(dl,{
+        label: '採譜する単位',
+        save: true,
+        value: '１６分音符',
+        list: {
+            '４分音符': 1,
+            '８分音符': 2,
+            '１６分音符': 4,
+        }
+    })
+    let stopFunc, unitTime;
     const startBtn = addBtn('処理start', () => {
-        if(!isReady) return msg('読み込みが完了していません', true);
-        stopFunc = timer(inputBPM, cooking);
+        unitTime = 60 * 1000 / inputBPM / inputUnit;
+        g_music.push(unitTime + 'ms');
+        stopFunc = timer(unitTime, cooking);
         startBtn.hide();
         stopBtn.show();
     });
@@ -88,7 +99,6 @@
         g_music = [];
     });
     const outputBtn = addBtn('出力', () => {
-        if(!isReady) return msg('読み込みが完了していません', true);
         makeTextFile('採譜データ', g_music.map(v => v.map(v => v).join(' ')).join('\n'));
     });
     const makeTextFile = (ttl, str) => $('<a>').prop({
@@ -106,7 +116,7 @@
         freq = new Uint8Array(analy.frequencyBinCount);
         setting();
         msg('読み込み完了');
-        isReady = true;
+        dl.show();
     };
     const timer = (ms, func) => {
         let id, old = 0;
@@ -130,8 +140,8 @@
         }
         const jList = [];
         let prev = 0;
-        for(const [i,v] of piano.entries()){
-            const next = Infinity || piano[i + 1],
+        for(const [i,v] of pianoArr.entries()){
+            const next = Infinity || pianoArr[i + 1],
                   map = new Map;
             for(let j = prev; j < hzList.length; j++){
                 const hz = hzList[j];
@@ -158,7 +168,7 @@
         }*/
         let limit;
         const arr = [];
-        for(const [i,v] of piano.entries()){
+        for(const [i,v] of pianoArr.entries()){
             let sum = 0;
             for(const [j,rate] of g_jList[i].entries()){
                 sum += freq[j] * rate;
@@ -176,9 +186,38 @@
           height = 300;
     const cv = $('<canvas>').appendTo(h).prop({width, height}),
           ctx = cv.get(0).getContext('2d');
-    const piano = (()=>{ // ピアノ88鍵盤の周波数の配列
+    const pianoArr = (()=>{ // ピアノ88鍵盤の周波数の配列
         const semiTone = Math.exp(1/12 * Math.log(2));
         return [...new Array(87)].reduce((p, x)=>(p.unshift(p[0] * semiTone), p), [27.5]).reverse();
     })();
-    const pianoLast = piano[piano.length - 1];
+    const pianoLast = pianoArr[pianoArr.length - 1];
+    const demo = new class {
+        constructor(){
+            this.idx = 0;
+            this.delay = 0;
+        }
+        start(){
+            this.stop = timer();
+        }
+        play(){
+            const {idx} = this;
+            if(idx >= g_music.length) return;
+            const now = g_music[idx];
+            if(typeof now === 'string'){
+                this.delay = Number(now.slice(0,-2));
+            }
+            else {
+                for(const v of now) this.piano(v);
+            }
+            this.idx++;
+        }
+    }();
+    const piano = new class {
+        constructor(){
+            // ピアノの鍵盤を用意
+        }
+        play(i){
+            // i番目のピアノ
+        }
+    }();
 })();
