@@ -56,26 +56,37 @@
     addBtn('計測リセット', () => {
         calcBPM = new calcBPM.constructor();
     });
-    new class {
-        constructor(){
-            this.a = addBtn('音楽再生', () => this.play());
-            this.b = addBtn('音楽停止', () => this.stop()).hide();
+    class toggleBtn {
+        constructor(ttl, ttl2){
+            this.a = addBtn(ttl, () => this.on());
+            this.b = addBtn(ttl2, () => this.off()).hide();
         }
-        play(){
-            this.a.hide();
-            this.b.show();
+        on(){
+            const {a,b} = this;
+            a.hide();
+            b.show();
+        }
+        off(){
+            const {a,b} = this;
+            a.show();
+            b.hide();
+        }
+    }
+    new class extends toggleBtn {
+        on(){
+            super.on();
             const src = audioCtx.createBufferSource();
             src.buffer = audioBuf;
             src.connect(analy).connect(audioCtx.destination);
+            src.onended = this.off;
             src.start(0);
             this.src = src;
         }
-        stop(){
-            this.a.show();
-            this.b.hide();
+        off(){
+            super.off();
             this.src.stop();
         }
-    };
+    }('音楽を再生', '音楽を停止');
     const inputUnit = rpgen3.addSelect(dl,{
         label: '採譜する単位',
         save: true,
@@ -93,45 +104,34 @@
         min: 0,
         max: 255
     });
-    new class {
-        constructor(){
-            this.a = addBtn('測定start', () => this.play());
-            this.b = addBtn('測定stop', () => this.stop()).hide();
-        }
-        play(){
-            this.a.hide();
-            this.b.show();
+    new class extends toggleBtn {
+        on(){
+            super.on();
             this.func = timer(cooking, 60 * 1000 / inputBPM / inputUnit);
         }
-        stop(){
-            this.a.show();
-            this.b.hide();
+        off(){
+            super.off();
             this.func();
         }
-    };
+    }('測定start', '測定stop');
     const resetBtn = addBtn('採譜reset', () => {
         if(!confirm('採譜したデータを消去しますか？')) return;
         g_music = [];
+        debugMax = 0
     });
     const outputBtn = addBtn('保存', () => {
         makeTextFile('採譜データ', g_music.map(v => v.map(v => v).join(' ')).join('\n'));
     });
-    new class {
-        constructor(){
-            this.a = addBtn('採譜結果を再生', () => this.start());
-            this.b = addBtn('採譜結果を停止', () => this.stop()).hide();
-        }
-        play(){
-            this.a.hide();
-            this.b.show();
+    new class extends toggleBtn {
+        on(){
+            super.on();
             this.func = demo();
         }
-        stop(){
-            this.a.show();
-            this.b.hide();
+        off(){
+            super.off();
             this.func();
         }
-    };
+    }('採譜結果を再生', '採譜結果を停止');
     const makeTextFile = (ttl, str) => $('<a>').prop({
         download: ttl + '.txt',
         href: URL.createObjectURL(new Blob([str], {
@@ -199,9 +199,14 @@
         for(const [i,v] of arr.entries()){
             if(v >= inputLimit) output.push(i);
         }
-        if(inputDebug !== false) g_music.push([arr[inputDebug]]);
+        if(inputDebug !== false) {
+            const now = arr[inputDebug];
+            if(now > debugMax) debugMax = now;
+            g_music.push([now]);
+        }
         else g_music.push(output);
     };
+    let debugMax = 0;
     const piano = (()=>{
         const semiTone = Math.exp(1/12 * Math.log(2)),
               hz = [...new Array(87)].reduce((p, x)=>(p.unshift(p[0] * semiTone), p), [27.5]).reverse(),
