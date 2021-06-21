@@ -178,6 +178,7 @@
             if(v >= inputLimit) output.push(i);
         }
         g_music.push(output);
+        if(inputDebug !== false) msg(arr[inputDebug()]);
     };
     const piano = (()=>{
         const semiTone = Math.exp(1/12 * Math.log(2)),
@@ -191,6 +192,17 @@
             ar.push(ptn[j] + (idxs.includes(j) ? '' : '#') + ((i + 9) / ptn.length | 0));
         }
         return {hz, hzLast, hzToNote: ar};
+    })();
+    const inputDebug = (()=>{
+        const list = {},
+              {hz, hzToNote} = piano,
+              value = '測定しない';
+        for(const i of hz.keys()) list[hzToNote(i)] = i;
+        list[value] = false;
+        return rpgen3.addSelect(dl,{
+            lebel: '音階の値を測定(debug用)',
+            list, value
+        });
     })();
     const demo = () => {
         const {Tone} = window,
