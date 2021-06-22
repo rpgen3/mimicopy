@@ -172,7 +172,7 @@
                   hz[hz.length - 1] * semiTone
               ],
               range = [];
-        for(const [i,v] of hz){
+        for(const i of hz.keys()){
             const [prev, now, next] = a90.slice(i, i + 3);
             range.push([
                 (now - prev) / 2 + prev,
@@ -192,7 +192,7 @@
             }
         }
         pianoRange = [];
-        for(const [i,v] of hz){
+        for(const i of hz.keys()){
             const [start, end] = range[i],
                   arr = [];
             for(const Hz of freqHz){
