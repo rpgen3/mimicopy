@@ -120,7 +120,9 @@
     new class extends toggleBtn {
         on(){
             super.on();
-            this.func = timer(cooking, 60 * 1000 / inputBPM / inputUnit);
+            this.func = timer(cooking, {
+                valueOf: () => 60 * 1000 / inputBPM / inputUnit
+            });
         }
         off(){
             super.off();
@@ -300,17 +302,18 @@
         return $('<canvas>').appendTo(ui[2]).prop({width, height}).get(0).getContext('2d');
     })();
     const demo = () => {
+        const dur = inputUnit * 4 + 'n';
         const {Tone} = window,
               synth = new Tone.Synth().toMaster();
         const data = g_music.map(v => v.length ? v.map(v => ({
             note: piano.hzToNote[v],
-            dur: inputUnit * 4 + 'n'
+            dur
         })) : null);
         const trimFront = arr => arr.reduce((p, x) => x || p[0] ? p.concat(x) : p, []),
               trim = arr => trimFront(trimFront(arr).reverse()).reverse();
         const seq = new Tone.Sequence((time, {note, dur}) => {
             synth.triggerAttackRelease(note, dur, time);
-        }, trim(data), '4n').start(0);
+        }, trim(data), dur).start(0);
         seq.loop = false;
         Tone.Transport.bpm.value = inputBPM();
         Tone.Transport.start();
