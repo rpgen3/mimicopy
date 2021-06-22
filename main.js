@@ -27,11 +27,26 @@
         fr.onload = () => load(fr.result);
         fr.readAsArrayBuffer(e.target.files[0]);
     });
-    const dl = $('<dl>').appendTo(h).hide();
-    const addBtn = (ttl, func) => $('<button>').appendTo(dl).text(ttl).on('click', func);
+    const header = $('<dl>').appendTo(h).hide(),
+          footer = $('<dl>').appendTo(h).hide();
+    const addBtn = (parent, ttl, func) => $('<button>').appendTo(parent).text(ttl).on('click', func);
+    const selectMode = rpgen3.addSelect(footer,{
+        label: 'モード選択',
+        list: {
+            '採譜': 0,
+            'BPM測定': 1,
+            'グラフ表示': 2,
+            '周波数計測': 3
+        }
+    });
+    const ui = [...new Array(4)].map(v => $('<dl>').appendTo(footer).hide());
+    selectMode.elm.on('change', () => {
+        ui.forEach(v => v.hide());
+        ui[selectMode()].show();
+    }).trigger('change');
     const bpmMin = 40,
           bpmMax = 300;
-    const inputBPM = rpgen3.addInputNum(dl,{
+    const inputBPM = rpgen3.addInputNum(header,{
         label: 'BPM',
         save: true,
         value: 140,
@@ -52,14 +67,14 @@
             inputBPM(this.ar.reduce((p,x) => p + x) / this.ar.length);
         }
     };
-    addBtn('タップでBPM計測', () => calcBPM.main());
-    addBtn('計測リセット', () => {
+    addBtn(ui[1], 'タップでBPM計測', () => calcBPM.main());
+    addBtn(ui[1], '計測リセット', () => {
         calcBPM = new calcBPM.constructor();
     });
     class toggleBtn {
-        constructor(ttl, ttl2){
-            this.a = addBtn(ttl, () => this.on());
-            this.b = addBtn(ttl2, () => this.off()).hide();
+        constructor(parent, ttl, ttl2){
+            this.a = addBtn(parent, ttl, () => this.on());
+            this.b = addBtn(parent, ttl2, () => this.off()).hide();
         }
         on(){
             this.a.hide();
@@ -84,8 +99,8 @@
             super.off();
             this.src.stop();
         }
-    }('音楽を再生', '音楽を停止');
-    const inputUnit = rpgen3.addSelect(dl,{
+    }(header, '音楽を再生', '音楽を停止');
+    const inputUnit = rpgen3.addSelect(ui[0],{
         label: '採譜する単位',
         save: true,
         value: '１６分音符',
@@ -95,7 +110,7 @@
             '１６分音符': 4,
         }
     });
-    const inputLimit = rpgen3.addInputNum(dl,{
+    const inputLimit = rpgen3.addInputNum(header,{
         label: '採譜の下限値',
         save: true,
         value: 127,
@@ -110,17 +125,17 @@
         off(){
             super.off();
             this.func();
-            if(inputDebug !== false) {
+            if(selectMode() === 3) {
                 g_music.push(['max:' + debugMax]);
                 debugMax = 0;
             }
         }
-    }('測定start', '測定stop');
-    const resetBtn = addBtn('採譜reset', () => {
+    }(header, '処理start', '処理stop');
+    const resetBtn = addBtn(ui[0], '採譜reset', () => {
         if(!confirm('採譜したデータを消去しますか？')) return;
         g_music = [];
     });
-    const outputBtn = addBtn('保存', () => {
+    const outputBtn = addBtn(ui[0], '保存', () => {
         makeTextFile('採譜データ', g_music.map(v => v.map(v => v).join(' ')).join('\n'));
     });
     new class extends toggleBtn {
@@ -132,7 +147,7 @@
             super.off();
             this.func();
         }
-    }('採譜結果を再生', '採譜結果を停止');
+    }(ui[0], '採譜結果を再生', '採譜結果を停止');
     const makeTextFile = (ttl, str) => $('<a>').prop({
         download: ttl + '.txt',
         href: URL.createObjectURL(new Blob([str], {
@@ -148,7 +163,7 @@
         freq = new Uint8Array(analy.frequencyBinCount);
         setting();
         msg('読み込み完了');
-        dl.show();
+        $(header).add(footer).show();
     };
     const timer = (func, ms) => {
         let id, old = 0;
@@ -163,7 +178,7 @@
         requestAnimationFrame(loop);
         return () => cancelAnimationFrame(id);
     };
-    const setting = () => {
+    const setting = () => { // 標本化
         const {semiTone, hz} = piano,
               a90 = [
                   hz[0] / semiTone,
@@ -204,7 +219,7 @@
         g_music = [];
     };
     let pianoRange, g_music, g_min;
-    const cooking = () => {
+    const cooking = () => { // 量子化
         analy.getByteFrequencyData(freq);
         const arr = [];
         for(const i of piano.hz.keys()){
@@ -216,17 +231,30 @@
         for(const [i,v] of arr.entries()){
             if(v >= inputLimit) output.push(i);
         }
-        if(inputDebug !== false) {
-            const now = arr[inputDebug];
-            if(now > debugMax) debugMax = now;
-            g_music.push([now]);
+        switch(selectMode()){
+            case 0: return g_music.push(output);
+            case 1: return;
+            case 2: {
+                const {width, height} = ctx.canvas;
+                ctx.clearRect(0, 0, width, height);
+                ctx.fillStyle = 'blue';
+                for(const [i,v] of arr.entries()) ctx.fillRect(5 * i, height - v, 5, v);
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+                ctx.fillRect(0, height - inputLimit - 1, width, 3);
+                break;
+            }
+            case 3: {
+                const now = arr[inputDebug];
+                if(now > debugMax) debugMax = now;
+                g_music.push([now]);
+                break;
+            }
         }
-        else g_music.push(output);
     };
     let debugMax = 0;
     const piano = (()=>{
         const semiTone = Math.exp(1/12 * Math.log(2)),
-              hz = [...new Array(87)].reduce((p, x)=>(p.unshift(p[0] * semiTone), p), [27.5]).reverse();
+              hz = [...new Array(87)].reduce((p, x) => ([p[0] * semiTone].concat(p)), [27.5]).reverse();
         const ar = [],
               ptn = 'AABCCDDEFFGG',
               idxs = ptn.split('').map(v => ptn.indexOf(v));
@@ -238,14 +266,16 @@
     })();
     const inputDebug = (()=>{
         const list = {},
-              {hz, hzToNote} = piano,
-              value = '測定しない';
-        list[value] = false;
+              {hz, hzToNote} = piano;
         for(const i of hz.keys()) list[hzToNote[i]] = i;
-        return rpgen3.addSelect(dl,{
-            lebel: '音階の値を測定(debug用)',
-            list, value
+        return rpgen3.addSelect(ui[3],{
+            list, lebel: '音階の値を測定(debug用)'
         });
+    })();
+    const ctx = (()=>{
+        const width = 5 * piano.hz.length,
+              height = 300;
+        return $('<canvas>').appendTo(ui[2]).prop({width, height}).get(0).getContext('2d');
     })();
     const demo = () => {
         const {Tone} = window,
@@ -254,9 +284,11 @@
             note: piano.hzToNote[v],
             dur: inputUnit * 4 + 'n'
         })) : null);
+        const trimFront = arr => arr.reduce((p, x) => x || p[0] ? p.concat(x) : p, []),
+              trim = arr => trimFront(trimFront(arr).reverse()).reverse();
         const seq = new Tone.Sequence((time, {note, dur}) => {
             synth.triggerAttackRelease(note, dur, time);
-        }, data, '4n').start(0);
+        }, trim(data), '4n').start(0);
         seq.loop = false;
         Tone.Transport.bpm.value = inputBPM();
         Tone.Transport.start();
