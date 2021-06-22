@@ -62,23 +62,21 @@
             this.b = addBtn(ttl2, () => this.off()).hide();
         }
         on(){
-            const {a,b} = this;
-            a.hide();
-            b.show();
+            this.a.hide();
+            this.b.show();
         }
         off(){
-            const {a,b} = this;
-            a.show();
-            b.hide();
+            this.a.show();
+            this.b.hide();
         }
     }
     new class extends toggleBtn {
         on(){
             super.on();
             const src = audioCtx.createBufferSource();
-            src.buffer = audioBuf;
-            src.connect(analy).connect(audioCtx.destination);
-            src.onended = this.off;
+            src.buffer = audioBuf
+            src.connect(analy).connect(audioCtx.destination);;
+            src.onended = () => this.off();
             src.start(0);
             this.src = src;
         }
@@ -107,19 +105,20 @@
     new class extends toggleBtn {
         on(){
             super.on();
-            if(inputDebug !== false) g_music = [];
             this.func = timer(cooking, 60 * 1000 / inputBPM / inputUnit);
         }
         off(){
             super.off();
-            if(inputDebug !== false) g_music.push([debugMax]);
             this.func();
+            if(inputDebug !== false) {
+                g_music.push(['max:' + debugMax]);
+                debugMax = 0;
+            }
         }
     }('測定start', '測定stop');
     const resetBtn = addBtn('採譜reset', () => {
         if(!confirm('採譜したデータを消去しますか？')) return;
         g_music = [];
-        debugMax = 0
     });
     const outputBtn = addBtn('保存', () => {
         makeTextFile('採譜データ', g_music.map(v => v.map(v => v).join(' ')).join('\n'));
