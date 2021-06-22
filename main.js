@@ -107,10 +107,12 @@
     new class extends toggleBtn {
         on(){
             super.on();
+            if(inputDebug !== false) g_music = [];
             this.func = timer(cooking, 60 * 1000 / inputBPM / inputUnit);
         }
         off(){
             super.off();
+            if(inputDebug !== false) g_music.push([debugMax]);
             this.func();
         }
     }('測定start', '測定stop');
@@ -162,36 +164,52 @@
         requestAnimationFrame(loop);
         return () => cancelAnimationFrame(id);
     };
-    let hzRange, g_music, g_min;
     const setting = () => {
-        g_min = Math.min(...g_loudness);
-        hzRange = g_music = [];
-        const arr = [];
+        const {semiTone, hz} = piano,
+              a90 = [
+                  hz[0] / semiTone,
+                  ...hz,
+                  hz[hz.length - 1] * semiTone
+              ],
+              range = [];
+        for(const [i,v] of hz){
+            const [prev, now, next] = a90.slice(i, i + 3);
+            range.push([
+                (now - prev) / 2 + prev,
+                (next - now) / 2 + now
+            ]);
+        }
+        const start = range[0][0],
+              end = range[range.length - 1][1],
+              freqHz = [],
+              m = new Map;
         for(const [i,v] of freq.entries()){
-            const hz = i * 44100 / analy.fftSize;
-            arr.push(hz);
-            if(hz > piano.hzLast) break;
-        }
-        let prev = 0;
-        for(const [i,v] of piano.hz.entries()){
-            const next = Infinity || piano.hz[i + 1],
-                  r = [];
-            for(let j = prev; j < arr.length; j++){
-                const hz = arr[j];
-                if(hz > next) {
-                    prev = j;
-                    break;
-                }
-                r.push(j);
+            const Hz = i * 44100 / analy.fftSize;
+            if(Hz >= end) break;
+            if(Hz > start) {
+                freqHz.push(Hz);
+                m.set(Hz, i);
             }
-            hzRange.push(r);
         }
+        pianoRange = [];
+        for(const [i,v] of hz){
+            const [start, end] = range[i],
+                  arr = [];
+            for(const Hz of freqHz){
+                if(Hz >= end) break;
+                if(Hz > start) arr.push(m.get(Hz));
+            }
+            pianoRange.push(arr);
+        }
+        g_min = Math.min(...g_loudness);
+        g_music = [];
     };
+    let pianoRange, g_music, g_min;
     const cooking = () => {
         analy.getByteFrequencyData(freq);
         const arr = [];
         for(const i of piano.hz.keys()){
-            const r = hzRange[i],
+            const r = pianoRange[i],
                   sum = r.reduce((p,x) => p + freq[x], 0);
             arr.push(sum / r.length * (g_min / g_loudness[i]));
         }
@@ -209,8 +227,7 @@
     let debugMax = 0;
     const piano = (()=>{
         const semiTone = Math.exp(1/12 * Math.log(2)),
-              hz = [...new Array(87)].reduce((p, x)=>(p.unshift(p[0] * semiTone), p), [27.5]).reverse(),
-              hzLast = hz[hz.length - 1];
+              hz = [...new Array(87)].reduce((p, x)=>(p.unshift(p[0] * semiTone), p), [27.5]).reverse();
         const ar = [],
               ptn = 'AABCCDDEFFGG',
               idxs = ptn.split('').map(v => ptn.indexOf(v));
@@ -218,7 +235,7 @@
             const j = i % ptn.length;
             ar.push(ptn[j] + (idxs.includes(j) ? '' : '#') + ((i + 9) / ptn.length | 0));
         }
-        return {hz, hzLast, hzToNote: ar};
+        return {semiTone, hz, hzToNote: ar};
     })();
     const inputDebug = (()=>{
         const list = {},
