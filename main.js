@@ -110,10 +110,17 @@
             '１６分音符': 4,
         }
     });
+    const inputTopN = rpgen3.addInputNum(ui[0],{
+        label: '上位の音から抽出(0なら全て)',
+        save: true,
+        value: 0,
+        min: 0,
+        max: 9
+    });
     const inputLimit = rpgen3.addInputNum(header,{
         label: '採譜の下限値',
         save: true,
-        value: 127,
+        value: 30,
         min: 0,
         max: 255
     });
@@ -180,6 +187,18 @@
         requestAnimationFrame(loop);
         return () => cancelAnimationFrame(id);
     };
+    const A = (() => { // A特性補正式
+        const rA = f => 12194 ** 2 * f ** 4 / (
+            (f ** 2 + 20.6 ** 2) *
+            Math.sqrt(
+                (f ** 2 + 107.7 ** 2) * (f ** 2 + 737.9 ** 2)
+            ) * (f ** 2 + 12194 ** 2)
+        );
+        return f => f ? 20 * Math.log10(rA(f)) + 2 : 0;
+    })();
+    const ATH = f => 3.64 * (f / 1000) ** -0.8 -
+          6.5 * Math.E ** (-0.6 * (f / 1000 - 3.3) ** 2) +
+          10 ** -3 * (f / 1000) ** 4; // 最小可聴値
     const setting = () => { // 標本化
         const {semiTone, hz} = piano,
               a90 = [
@@ -217,22 +236,35 @@
             }
             pianoRange.push(arr);
         }
-        g_min = Math.min(...g_loudness);
+        Aarr = [];
+        for(const v of hz) Aarr.push(A(v));
         g_music = [];
     };
-    let pianoRange, g_music, g_min;
+    let pianoRange, g_music, Aarr;
     const cooking = () => { // 量子化
         analy.getByteFrequencyData(freq);
         const arr = [];
         for(const i of piano.hz.keys()){
             const r = pianoRange[i],
-                  sum = r.reduce((p,x) => p + freq[x], 0);
-            arr.push(sum / r.length * (g_min / g_loudness[i]));
+                  ave = r.reduce((p,x) => p + freq[x], 0) / r.length,
+                  dB = 20 * Math.log10(ave);
+            arr.push(Math.max(0, dB + Aarr[i]));
         }
-        const output = [];
+        let output = [];
         for(const [i,v] of arr.entries()){
             if(v >= inputLimit) output.push(i);
         }
+        const topN = [];
+        for(let i = 0; i < inputTopN; i++){
+            let max = -1;
+            for(const i of output){
+                if((arr[max] | 0) < arr[i]) max = i;
+            }
+            if(max === -1) break;
+            topN.push(max);
+            output.splice(max, 1);
+        }
+        if(inputTopN()) output = topN;
         switch(selectMode()){
             case 0: return g_music.push(output);
             case 1: return;
@@ -319,8 +351,4 @@
         Tone.Transport.start();
         return () => Tone.Transport.stop();
     };
-    const g_loudness = await (async () => {
-        const res = await fetch('loudness.txt');
-        return res.ok ? (await res.text()).split('\n').map(v => +v) : [...new Array(88)].fill(1);
-    })();
 })();
