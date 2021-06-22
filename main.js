@@ -238,9 +238,18 @@
                 const {width, height} = ctx.canvas;
                 ctx.clearRect(0, 0, width, height);
                 ctx.fillStyle = 'blue';
-                for(const [i,v] of arr.entries()) ctx.fillRect(5 * i, height - v, 5, v);
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                const barW = inputBarWidth(),
+                      barH = height - barW,
+                      movX = inputScroll / 100 * (barW * piano.hz.length - width);
+                for(const [i,v] of arr.entries()) {
+                    const x = barW * i;
+                    ctx.fillRect(x - movX, barH - v , barW - 1, v);
+                    ctx.fillText(i, x + barW / 2 - movX, barH, barW * 0.8);
+                }
                 ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-                ctx.fillRect(0, height - inputLimit - 1, width, 3);
+                ctx.fillRect(0, barH - inputLimit - 1, width, 3);
                 break;
             }
             case 3: {
@@ -272,8 +281,21 @@
             list, lebel: '音階の値を測定(debug用)'
         });
     })();
+    const inputBarWidth = rpgen3.addInputNum(ui[2],{
+        label: 'バーの幅',
+        save: true,
+        value: 10,
+        min: 5,
+        max: 30
+    });
+    const inputScroll = rpgen3.addInputNum(ui[2],{
+        label: '横スクロール',
+        value: 0,
+        min: 0,
+        max: 100
+    });
     const ctx = (()=>{
-        const width = 5 * piano.hz.length,
+        const width = $(window).width() * 0.95,
               height = 300;
         return $('<canvas>').appendTo(ui[2]).prop({width, height}).get(0).getContext('2d');
     })();
