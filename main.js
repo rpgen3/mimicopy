@@ -164,7 +164,7 @@
         }))
     }).get(0).click();
     let audioCtx, audioBuf, analy, freq;
-    const load = async arrBuf => {
+    const load = arrBuf => {
         audioCtx = new AudioContext;
         audioBuf = await audioCtx.decodeAudioData(arrBuf);
         analy = audioCtx.createAnalyser();
